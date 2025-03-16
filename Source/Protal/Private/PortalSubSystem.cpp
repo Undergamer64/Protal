@@ -8,10 +8,8 @@
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
 
-void UPortalSubSystem::Init(USceneCaptureComponent2D* capture)
+void UPortalSubSystem::Init()
 {
-	CaptureComponent = capture;
-
 	FWorldDelegates::OnWorldInitializedActors.AddUObject(this, &UPortalSubSystem::OnWorldInitializedActors);
 }
 
@@ -61,7 +59,7 @@ void UPortalSubSystem::Tick(float DeltaTime)
 
 		if (!portal->WasRecentlyRendered())
 		{
-			CameraRelease(portal->LinkCamera);
+			if (portal->LinkCamera != nullptr) CameraRelease(portal->LinkCamera);
 			portal->LinkCamera = nullptr;
 		}
 		else
@@ -134,8 +132,12 @@ AActor* UPortalSubSystem::CameraGet()
 		UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>();
 		RenderTarget->InitAutoFormat(512, 512);
 		RenderTarget->UpdateResource();
+
+		UActorComponent* cameraCapture = camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass());
+
+		if (cameraCapture == nullptr) return nullptr;
 		
-		USceneCaptureComponent2D* cam = Cast<USceneCaptureComponent2D>(camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass()));
+		USceneCaptureComponent2D* cam = Cast<USceneCaptureComponent2D>(cameraCapture);
 
 		if (cam == nullptr) return nullptr;
 		
@@ -161,7 +163,13 @@ void UPortalSubSystem::CameraRelease(AActor* camera)
 
 void UPortalSubSystem::RenderPortal(APortal* portal, AActor* camera)
 {
-	USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass()));
+	if (portal == nullptr || camera == nullptr) return;
+	
+	UActorComponent* cameraCapture = camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass());
+
+	if (cameraCapture == nullptr) return;
+	
+	USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(cameraCapture);
 
 	if (capture == nullptr) return;
 	
@@ -181,5 +189,7 @@ void UPortalSubSystem::CreateNewPortal(APortal* portal)
 	//Create Material Here
 	UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(PortalMaterialPrefab, portal);
 
+	if (DynamicMaterial == nullptr) return;
+	
 	portal->Mesh->SetMaterial(0, DynamicMaterial);
 }

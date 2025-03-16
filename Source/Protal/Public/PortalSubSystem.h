@@ -24,33 +24,34 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Portal")
 	TArray<APortal*> Portals;
-
-	UPROPERTY()
-	USceneCaptureComponent2D* CaptureComponent;
 	
-	void Init(USceneCaptureComponent2D* capture);
+	void Init();
 
 	void OnWorldInitializedActors(const FActorsInitializedParams& _);
 
-	void UPortalSubSystem::Tick(float DeltaTime) override;
+	virtual void UPortalSubSystem::Tick(float DeltaTime) override;
 
-	ETickableTickType GetTickableTickType() const override;
+	virtual ETickableTickType GetTickableTickType() const override;
 
-	TStatId GetStatId() const override;
+	virtual TStatId GetStatId() const override;
 
-	bool IsTickableWhenPaused() const override;
+	virtual bool IsTickableWhenPaused() const override;
 
-	bool IsTickableInEditor() const override;
+	virtual bool IsTickableInEditor() const override;
 
 	void CreateNewPortal(APortal* portal);
 
 private :
+	UPROPERTY()
 	TArray<AActor*> ActivePortalCameras;
+	
+	UPROPERTY()
 	TArray<AActor*> PortalCameras;
 
 	AActor* CameraGet();
 	void CameraRelease(AActor*);
 
+	UPROPERTY()
 	TArray<APortal*> LastActivePortals = TArray<APortal*>();
 
 	void RenderPortal(APortal* portal, AActor* camera);
