@@ -15,8 +15,7 @@ class PROTAL_API APortal : public AActor
 public:	
 	// Sets default values for this actor's properties
 	APortal();
-
-	UFUNCTION()
+	
 	void TeleportAttempt(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	
 	UPROPERTY(Category = Portal, EditDefaultsOnly, BlueprintReadOnly)
@@ -25,11 +24,11 @@ public:
 	UPROPERTY(Category = Portal, EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UBoxComponent> Trigger;
 
-	UPROPERTY()
-	APortal* LinkedPortal;
+	UPROPERTY(Category = Portal, EditAnywhere)
+	APortal* LinkedPortal = nullptr;
 
 	UPROPERTY()
-	AActor* LinkCamera;
+	AActor* LinkCamera = nullptr;
 	
 protected:
 	// Called when the game starts or when spawned
@@ -39,5 +38,5 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	FVector RelativeLinkLocation(AActor* actor);
+	FVector RelativeLinkLocation(AActor* actor) const;
 };

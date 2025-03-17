@@ -11,15 +11,20 @@
  * 
  */
 UCLASS()
-class PROTAL_API UPortalSubSystem : public ULocalPlayerSubsystem, public FTickableGameObject
+class UPortalSubSystem : public ULocalPlayerSubsystem, public FTickableGameObject
 {
 	GENERATED_BODY()
 
+	UPortalSubSystem();
+	
 public:
-	UPROPERTY(EditAnywhere)
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
+	
+	UPROPERTY()
 	TSubclassOf<AActor> PortalCameraPrefab;
 	
-	UPROPERTY(EditAnywhere)
+	UPROPERTY()
 	UMaterial* PortalMaterialPrefab;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Portal")
@@ -29,7 +34,7 @@ public:
 
 	void OnWorldInitializedActors(const FActorsInitializedParams& _);
 
-	virtual void UPortalSubSystem::Tick(float DeltaTime) override;
+	virtual void Tick(float DeltaTime) override;
 
 	virtual ETickableTickType GetTickableTickType() const override;
 

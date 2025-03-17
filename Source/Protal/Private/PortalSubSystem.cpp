@@ -8,6 +8,22 @@
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
 
+UPortalSubSystem::UPortalSubSystem()
+{
+	ConstructorHelpers::FObjectFinder<UClass> Camera(TEXT("/Game/Cam.Cam_C"));
+	ConstructorHelpers::FObjectFinder<UMaterial> Material(TEXT("/Game/Protal.Protal"));
+
+	if (Camera.Succeeded())
+	{
+		PortalCameraPrefab = Camera.Object;
+	}
+
+	if (Material.Succeeded())
+	{
+		PortalMaterialPrefab = Material.Object;
+	}
+}
+
 void UPortalSubSystem::Init()
 {
 	FWorldDelegates::OnWorldInitializedActors.AddUObject(this, &UPortalSubSystem::OnWorldInitializedActors);
@@ -34,7 +50,7 @@ void UPortalSubSystem::Tick(float DeltaTime)
 		if (portal == nullptr)
 		{
 			Portals.Remove(portal);
-			return;
+			continue;
 		}
 		if (portal->LinkedPortal == nullptr)
 		{
@@ -43,7 +59,7 @@ void UPortalSubSystem::Tick(float DeltaTime)
 				CameraRelease(portal->LinkCamera);
 				portal->LinkCamera = nullptr;
 			}
-			return;
+			continue;
 		}
 
 		/*
@@ -72,7 +88,11 @@ void UPortalSubSystem::Tick(float DeltaTime)
 				
 				portal->LinkCamera = camera;
 
-				USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass()));
+				UActorComponent* cameraCapture = camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass());
+
+				if (cameraCapture == nullptr) continue;
+		
+				USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(cameraCapture);
 
 				if (capture == nullptr) continue;
 				
@@ -81,15 +101,18 @@ void UPortalSubSystem::Tick(float DeltaTime)
 				if (DynamicMat == nullptr) continue;
 
 				DynamicMat->SetTextureParameterValue(FName("RenderTexture"), capture->TextureTarget);
-
-				RenderPortal(portal, camera);
 			}
+			RenderPortal(portal, portal->LinkCamera);
 		}
 	}
 
 	for (AActor* camera : ActivePortalCameras)
 	{
-		USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass()));
+		UActorComponent* cameraCapture = camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass());
+
+		if (cameraCapture == nullptr) continue;
+		
+		USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(cameraCapture);
 
 		if (capture == nullptr) continue;
 		
@@ -122,11 +145,11 @@ AActor* UPortalSubSystem::CameraGet()
 {
 	if (PortalCameras.Num() == 0)
 	{	
+		UE_LOG(LogTemp, Warning, TEXT("New Camera Created!"));
 		if (PortalCameraPrefab == nullptr) return nullptr;
 		
 		//Create New Camera
 		AActor* camera = GetWorld()->SpawnActor(PortalCameraPrefab);
-		PortalCameras.Add(camera);
 
 		//Create Render Target for the new camera
 		UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>();
@@ -145,10 +168,13 @@ AActor* UPortalSubSystem::CameraGet()
 		cam->bEnableClipPlane = true;
 		cam->bCaptureEveryFrame = false;
 		
+		PortalCameras.Add(camera);
+		
 		return camera;
 	}
 	else
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Camera Reused!"));
 		AActor* camera = PortalCameras.Pop();
 		ActivePortalCameras.Add(camera);
 		return camera;
@@ -157,8 +183,13 @@ AActor* UPortalSubSystem::CameraGet()
 
 void UPortalSubSystem::CameraRelease(AActor* camera)
 {
-	ActivePortalCameras.Remove(camera);
-	PortalCameras.Add(camera);
+	if (camera == nullptr) return;
+
+	if (ActivePortalCameras.Contains(camera))
+	{
+		ActivePortalCameras.Remove(camera);
+		PortalCameras.Add(camera);
+	}
 }
 
 void UPortalSubSystem::RenderPortal(APortal* portal, AActor* camera)
@@ -175,7 +206,7 @@ void UPortalSubSystem::RenderPortal(APortal* portal, AActor* camera)
 	
 	capture->ClipPlaneNormal = portal->GetActorForwardVector();
 	
-	camera->SetActorLocation(portal->RelativeLinkLocation(camera));
+	camera->SetActorLocation(portal->RelativeLinkLocation(GetLocalPlayer()->GetPlayerController(GetWorld())->GetPawn()));
 }
 
 void UPortalSubSystem::CreateNewPortal(APortal* portal)
@@ -188,8 +219,20 @@ void UPortalSubSystem::CreateNewPortal(APortal* portal)
 	
 	//Create Material Here
 	UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(PortalMaterialPrefab, portal);
-
+	
 	if (DynamicMaterial == nullptr) return;
 	
 	portal->Mesh->SetMaterial(0, DynamicMaterial);
+}
+
+void UPortalSubSystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+	UE_LOG(LogTemp, Warning, TEXT("UMyLocalPlayerSubsystem Initialized!"));
+	Init();
+}
+
+void UPortalSubSystem::Deinitialize()
+{
+	Super::Deinitialize();
 }

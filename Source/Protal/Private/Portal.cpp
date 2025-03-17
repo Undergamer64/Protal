@@ -2,15 +2,13 @@
 
 
 #include "Portal.h"
-#include "Protal/Public/Portal.h"
-#include "Components/BoxComponent.h"
 
 // Sets default values
 APortal::APortal()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-
+	
 	ConstructorHelpers::FObjectFinder<UStaticMesh> portalMesh(TEXT("/Game/TestPortal.TestPortal"));
 	ConstructorHelpers::FObjectFinder<UMaterialInterface> portalMaterial(TEXT("/Game/Protal.Protal"));
 
@@ -27,9 +25,9 @@ APortal::APortal()
 
 	Trigger = CreateDefaultSubobject<UBoxComponent>(TEXT("Trigger"));
 	Trigger->SetMobility(EComponentMobility::Static);
-	Trigger->SetBoxExtent(FVector(0, 400, 400));
+	Trigger->SetBoxExtent(FVector(0, 100, 100));
 	Trigger->SetRelativeLocation(FVector(-60, 0, 0));
-	Trigger->OnComponentEndOverlap.AddDynamic(this, &APortal::TeleportAttempt);
+	//Trigger->OnComponentEndOverlap.AddDynamic(this, &APortal::TeleportAttempt);
 	Trigger->SetupAttachment(Mesh);
 }
 
@@ -54,7 +52,7 @@ void APortal::Tick(float DeltaTime)
 
 }
 
-FVector APortal::RelativeLinkLocation(AActor* actor)
+FVector APortal::RelativeLinkLocation(AActor* actor) const
 {
 	if (LinkedPortal == nullptr || actor == nullptr) return FVector::ZeroVector;
 	return LinkedPortal->GetActorTransform().InverseTransformPosition(GetActorTransform().TransformPosition(actor->GetActorLocation()));
