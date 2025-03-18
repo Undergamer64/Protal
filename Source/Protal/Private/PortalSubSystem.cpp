@@ -5,8 +5,10 @@
 
 #include "EngineUtils.h"
 #include "Portal.h"
+#include "Camera/CameraComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "Systems/MovieSceneQuaternionBlenderSystem.h"
 
 UPortalSubSystem::UPortalSubSystem()
 {
@@ -95,13 +97,37 @@ void UPortalSubSystem::Tick(float DeltaTime)
 				USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(cameraCapture);
 
 				if (capture == nullptr) continue;
+
+				if (portal == nullptr) continue;
 				
-				UMaterialInstanceDynamic* DynamicMat = Cast<UMaterialInstanceDynamic>(portal->Mesh->GetMaterial(0));
+				UMaterialInterface* BaseMaterial = portal->Mesh->GetMaterial(0);
 
-				if (DynamicMat == nullptr) continue;
+				UMaterialInstanceDynamic* DynamicMat = Cast<UMaterialInstanceDynamic>(BaseMaterial);
 
-				DynamicMat->SetTextureParameterValue(FName("RenderTexture"), capture->TextureTarget);
+				if (DynamicMat == nullptr)
+				{
+					DynamicMat = UMaterialInstanceDynamic::Create(PortalMaterialPrefab, portal);
+					if (!DynamicMat)
+					{
+						UE_LOG(LogTemp, Error, TEXT("Failed to create Dynamic Material Instance!"));
+						continue;
+					}
+
+					portal->Mesh->SetMaterial(0, DynamicMat);
+				}
+
+				if (capture && capture->TextureTarget)
+				{
+					DynamicMat->SetTextureParameterValue(FName("RenderTarget"), capture->TextureTarget);
+					UE_LOG(LogTemp, Warning, TEXT("Updated RenderTexture Parameter!"));
+				}
+				else
+				{
+					UE_LOG(LogTemp, Error, TEXT("Capture or TextureTarget is NULL!"));
+					continue;
+				}
 			}
+			
 			RenderPortal(portal, portal->LinkCamera);
 		}
 	}
@@ -205,8 +231,14 @@ void UPortalSubSystem::RenderPortal(APortal* portal, AActor* camera)
 	if (capture == nullptr) return;
 	
 	capture->ClipPlaneNormal = portal->GetActorForwardVector();
+
+	APawn* Player = GetLocalPlayer()->GetPlayerController(GetWorld())->GetPawn();
 	
-	camera->SetActorLocation(portal->RelativeLinkLocation(GetLocalPlayer()->GetPlayerController(GetWorld())->GetPawn()));
+	camera->SetActorLocation(portal->RelativeLinkLocation(Player));
+	
+	camera->SetActorRotation(Player->GetControlRotation());
+	
+	capture->ClipPlaneBase = portal->GetActorLocation() + portal->GetActorForwardVector() * 50.0f; // Let's hope it works !
 }
 
 void UPortalSubSystem::CreateNewPortal(APortal* portal)
@@ -221,8 +253,21 @@ void UPortalSubSystem::CreateNewPortal(APortal* portal)
 	UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(PortalMaterialPrefab, portal);
 	
 	if (DynamicMaterial == nullptr) return;
+
+	if (portal->Mesh == nullptr) return;
 	
-	portal->Mesh->SetMaterial(0, DynamicMaterial);
+	int32 MaterialSlotCount = portal->Mesh->GetNumMaterials();
+	UE_LOG(LogTemp, Warning, TEXT("Material slot count: %d"), MaterialSlotCount);
+
+	if (MaterialSlotCount > 0)
+	{
+		portal->Mesh->SetMaterial(0, DynamicMaterial);
+		UE_LOG(LogTemp, Warning, TEXT("Changed Material !"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("No material slots available on portal mesh!"));
+	}
 }
 
 void UPortalSubSystem::Initialize(FSubsystemCollectionBase& Collection)

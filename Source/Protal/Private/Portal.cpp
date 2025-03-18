@@ -55,5 +55,10 @@ void APortal::Tick(float DeltaTime)
 FVector APortal::RelativeLinkLocation(AActor* actor) const
 {
 	if (LinkedPortal == nullptr || actor == nullptr) return FVector::ZeroVector;
-	return LinkedPortal->GetActorTransform().InverseTransformPosition(GetActorTransform().TransformPosition(actor->GetActorLocation()));
+
+	FVector RelativeLocation = GetActorTransform().InverseTransformPosition(actor->GetActorLocation());
+	
+	FVector EndLocation = LinkedPortal->GetActorTransform().TransformPosition(-RelativeLocation);
+	
+	return EndLocation;
 }
