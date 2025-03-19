@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Portal.h"
+#include "PortalCamera.h"
 #include "Subsystems/LocalPlayerSubsystem.h"
 #include "PortalSubSystem.generated.h"
 
@@ -22,7 +23,7 @@ public:
 	virtual void Deinitialize() override;
 	
 	UPROPERTY()
-	TSubclassOf<AActor> PortalCameraPrefab;
+	TSubclassOf<APortalCamera> PortalCameraPrefab;
 	
 	UPROPERTY()
 	UMaterial* PortalMaterialPrefab;
@@ -48,16 +49,16 @@ public:
 
 private :
 	UPROPERTY()
-	TArray<AActor*> ActivePortalCameras;
+	TArray<APortalCamera*> ActivePortalCameras;
 	
 	UPROPERTY()
-	TArray<AActor*> PortalCameras;
+	TArray<APortalCamera*> PortalCameras;
 
-	AActor* CameraGet();
-	void CameraRelease(AActor*);
+	APortalCamera* CameraGet();
+	void CameraRelease(APortalCamera*);
 
 	UPROPERTY()
 	TArray<APortal*> LastActivePortals = TArray<APortal*>();
 
-	void RenderPortal(APortal* portal, AActor* camera);
+	void RenderPortal(APortal* portal);
 };

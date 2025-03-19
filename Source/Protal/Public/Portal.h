@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PortalCamera.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/Actor.h"
 #include "Portal.generated.h"
@@ -28,7 +29,7 @@ public:
 	APortal* LinkedPortal = nullptr;
 
 	UPROPERTY()
-	AActor* LinkCamera = nullptr;
+	APortalCamera* LinkCamera = nullptr;
 	
 protected:
 	// Called when the game starts or when spawned
@@ -38,5 +39,9 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	FVector RelativeLinkLocation(AActor* actor) const;
+	FVector RelativeLinkLocation(FVector Pos) const;
+
+	FQuat RelativeLinkRotation(FQuat Rot) const;
+
+	void SetupClipPlane(USceneCaptureComponent2D* CaptureComponent) const;
 };

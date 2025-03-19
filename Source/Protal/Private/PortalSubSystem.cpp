@@ -33,11 +33,6 @@ void UPortalSubSystem::Init()
 
 void UPortalSubSystem::OnWorldInitializedActors(const FActorsInitializedParams& _)
 {
-	/*
-	TArray<AActor*> FoundActors;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APortal::StaticClass(), FoundActors);
-	*/
-	
 	for (TActorIterator<APortal> It(GetWorld()); It; ++It)
 	{
 		CreateNewPortal(*It);
@@ -64,17 +59,6 @@ void UPortalSubSystem::Tick(float DeltaTime)
 			continue;
 		}
 
-		/*
-		if (portal->WasRecentlyRendered())
-		{
-			// CaptureComponent->TextureTarget = portal->LinkedPortal->CaptureComponent->TextureTarget;
-		}
-		else
-		{
-			// CaptureComponent->TextureTarget = nullptr;
-		}
-		*/
-
 		if (!portal->WasRecentlyRendered())
 		{
 			if (portal->LinkCamera != nullptr) CameraRelease(portal->LinkCamera);
@@ -84,21 +68,15 @@ void UPortalSubSystem::Tick(float DeltaTime)
 		{
 			if (portal->LinkCamera == nullptr)
 			{
-				AActor* camera = CameraGet();
+				APortalCamera* camera = CameraGet();
 
 				if (camera == nullptr) return;
 				
 				portal->LinkCamera = camera;
-
-				UActorComponent* cameraCapture = camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass());
-
-				if (cameraCapture == nullptr) continue;
 		
-				USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(cameraCapture);
+				USceneCaptureComponent2D* capture = camera->Capture;
 
 				if (capture == nullptr) continue;
-
-				if (portal == nullptr) continue;
 				
 				UMaterialInterface* BaseMaterial = portal->Mesh->GetMaterial(0);
 
@@ -128,17 +106,13 @@ void UPortalSubSystem::Tick(float DeltaTime)
 				}
 			}
 			
-			RenderPortal(portal, portal->LinkCamera);
+			RenderPortal(portal);
 		}
 	}
 
-	for (AActor* camera : ActivePortalCameras)
+	for (APortalCamera* camera : ActivePortalCameras)
 	{
-		UActorComponent* cameraCapture = camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass());
-
-		if (cameraCapture == nullptr) continue;
-		
-		USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(cameraCapture);
+		USceneCaptureComponent2D* capture = camera->Capture;
 
 		if (capture == nullptr) continue;
 		
@@ -167,26 +141,22 @@ bool UPortalSubSystem::IsTickableInEditor() const
 }
 // FTickableGameObject End
 
-AActor* UPortalSubSystem::CameraGet()
+APortalCamera* UPortalSubSystem::CameraGet()
 {
-	if (PortalCameras.Num() == 0)
+	if (PortalCameras.Num() == 0 && ActivePortalCameras.Num() == 0)
 	{	
 		UE_LOG(LogTemp, Warning, TEXT("New Camera Created!"));
 		if (PortalCameraPrefab == nullptr) return nullptr;
 		
 		//Create New Camera
-		AActor* camera = GetWorld()->SpawnActor(PortalCameraPrefab);
+		APortalCamera* camera = Cast<APortalCamera>(GetWorld()->SpawnActor(PortalCameraPrefab));
 
 		//Create Render Target for the new camera
 		UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>();
 		RenderTarget->InitAutoFormat(512, 512);
 		RenderTarget->UpdateResource();
-
-		UActorComponent* cameraCapture = camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass());
-
-		if (cameraCapture == nullptr) return nullptr;
 		
-		USceneCaptureComponent2D* cam = Cast<USceneCaptureComponent2D>(cameraCapture);
+		USceneCaptureComponent2D* cam = camera->Capture;
 
 		if (cam == nullptr) return nullptr;
 		
@@ -194,20 +164,24 @@ AActor* UPortalSubSystem::CameraGet()
 		cam->bEnableClipPlane = true;
 		cam->bCaptureEveryFrame = false;
 		
-		PortalCameras.Add(camera);
+		ActivePortalCameras.Add(camera);
 		
+		return camera;
+	}
+	else if (PortalCameras.Num() > 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Camera Reused!"));
+		APortalCamera* camera = PortalCameras.Pop();
+		ActivePortalCameras.Add(camera);
 		return camera;
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Camera Reused!"));
-		AActor* camera = PortalCameras.Pop();
-		ActivePortalCameras.Add(camera);
-		return camera;
+		return nullptr;
 	}
 }
 
-void UPortalSubSystem::CameraRelease(AActor* camera)
+void UPortalSubSystem::CameraRelease(APortalCamera* camera)
 {
 	if (camera == nullptr) return;
 
@@ -218,27 +192,21 @@ void UPortalSubSystem::CameraRelease(AActor* camera)
 	}
 }
 
-void UPortalSubSystem::RenderPortal(APortal* portal, AActor* camera)
+void UPortalSubSystem::RenderPortal(APortal* portal)
 {
-	if (portal == nullptr || camera == nullptr) return;
+	if (portal == nullptr || portal->LinkCamera == nullptr || portal->LinkedPortal == nullptr) return;
 	
-	UActorComponent* cameraCapture = camera->GetComponentByClass(USceneCaptureComponent2D::StaticClass());
-
-	if (cameraCapture == nullptr) return;
-	
-	USceneCaptureComponent2D* capture = Cast<USceneCaptureComponent2D>(cameraCapture);
-
-	if (capture == nullptr) return;
-	
-	capture->ClipPlaneNormal = portal->GetActorForwardVector();
-
 	APawn* Player = GetLocalPlayer()->GetPlayerController(GetWorld())->GetPawn();
 	
-	camera->SetActorLocation(portal->RelativeLinkLocation(Player));
+	portal->LinkCamera->SetActorLocation(portal->RelativeLinkLocation(Player->GetActorLocation()));
 	
-	camera->SetActorRotation(Player->GetControlRotation());
-	
-	capture->ClipPlaneBase = portal->GetActorLocation() + portal->GetActorForwardVector() * 50.0f; // Let's hope it works !
+	portal->LinkCamera->SetActorRotation(portal->RelativeLinkRotation(Player->GetControlRotation().Quaternion()));
+
+	USceneCaptureComponent2D* capture = portal->LinkCamera->Capture;
+
+	if (capture == nullptr) return;
+
+	portal->LinkedPortal->SetupClipPlane(capture);
 }
 
 void UPortalSubSystem::CreateNewPortal(APortal* portal)
@@ -257,16 +225,10 @@ void UPortalSubSystem::CreateNewPortal(APortal* portal)
 	if (portal->Mesh == nullptr) return;
 	
 	int32 MaterialSlotCount = portal->Mesh->GetNumMaterials();
-	UE_LOG(LogTemp, Warning, TEXT("Material slot count: %d"), MaterialSlotCount);
 
 	if (MaterialSlotCount > 0)
 	{
 		portal->Mesh->SetMaterial(0, DynamicMaterial);
-		UE_LOG(LogTemp, Warning, TEXT("Changed Material !"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("No material slots available on portal mesh!"));
 	}
 }
 

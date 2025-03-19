@@ -3,6 +3,8 @@
 
 #include "Portal.h"
 
+#include "Components/SceneCaptureComponent2D.h"
+
 // Sets default values
 APortal::APortal()
 {
@@ -52,13 +54,40 @@ void APortal::Tick(float DeltaTime)
 
 }
 
-FVector APortal::RelativeLinkLocation(AActor* actor) const
+FVector APortal::RelativeLinkLocation(FVector Pos) const
 {
-	if (LinkedPortal == nullptr || actor == nullptr) return FVector::ZeroVector;
+	if (LinkedPortal == nullptr) return FVector::ZeroVector;
 
-	FVector RelativeLocation = GetActorTransform().InverseTransformPosition(actor->GetActorLocation());
+	FVector RelativeLocation = GetActorTransform().InverseTransformPosition(Pos);
 	
-	FVector EndLocation = LinkedPortal->GetActorTransform().TransformPosition(-RelativeLocation);
+	FVector FlippedRelativeLocation = FVector(-RelativeLocation.X, -RelativeLocation.Y, RelativeLocation.Z);
+	
+	FVector EndLocation = LinkedPortal->GetTransform().TransformPosition(FlippedRelativeLocation);
 	
 	return EndLocation;
+}
+
+FQuat APortal::RelativeLinkRotation(FQuat Rot) const
+{
+	if (!LinkedPortal)
+		return FQuat::Identity;
+
+	FQuat localIn = GetActorQuat().Inverse() * Rot;
+	
+	FQuat EndRotation = LinkedPortal->GetActorQuat() * (FQuat(0,0,1,0) * localIn);
+	
+	return EndRotation;
+}
+
+void APortal::SetupClipPlane(USceneCaptureComponent2D* CaptureComponent) const
+{
+	if (!CaptureComponent)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No SceneCaptureComponent found!"));
+		return;
+	}
+
+	CaptureComponent->bEnableClipPlane = true;
+	CaptureComponent->ClipPlaneNormal = -GetActorForwardVector();
+	CaptureComponent->ClipPlaneBase = GetActorLocation() + CaptureComponent->ClipPlaneNormal * -1.5f;
 }
