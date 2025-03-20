@@ -11,8 +11,11 @@ APortalCamera::APortalCamera()
 	PrimaryActorTick.bCanEverTick = true;
 
 	Capture = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("Capture"));
+	if (Capture == nullptr) return;
 	SetRootComponent(Capture);
-
+	
 	Capture->bEnableClipPlane = true;
 	Capture->bCaptureEveryFrame = false;
+	Capture->bCaptureOnMovement = false;
+	Capture->CaptureSource = ESceneCaptureSource::SCS_FinalColorHDR;
 }

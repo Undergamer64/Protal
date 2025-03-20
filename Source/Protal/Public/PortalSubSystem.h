@@ -21,7 +21,9 @@ class UPortalSubSystem : public ULocalPlayerSubsystem, public FTickableGameObjec
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
-	
+	FVector2D GetGameViewportSize();
+	FVector2D GetGameResolution();
+
 	UPROPERTY()
 	TSubclassOf<APortalCamera> PortalCameraPrefab;
 	
@@ -30,6 +32,18 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Portal")
 	TArray<APortal*> Portals;
+
+	UPROPERTY()
+	FVector2D ViewportSize = FVector2D(1, 1);
+
+	UPROPERTY()
+	FVector2D Resolution = FVector2D(1, 1);
+
+	UPROPERTY()
+	float FOV = 90;
+
+	UPROPERTY()
+	APawn* Player;
 	
 	void Init();
 

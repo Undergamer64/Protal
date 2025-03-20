@@ -16,7 +16,8 @@ class PROTAL_API APortal : public AActor
 public:	
 	// Sets default values for this actor's properties
 	APortal();
-	
+
+	UFUNCTION()
 	void TeleportAttempt(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	
 	UPROPERTY(Category = Portal, EditDefaultsOnly, BlueprintReadOnly)
@@ -43,5 +44,5 @@ public:
 
 	FQuat RelativeLinkRotation(FQuat Rot) const;
 
-	void SetupClipPlane(USceneCaptureComponent2D* CaptureComponent) const;
+	void SetupClipPlane() const;
 };

@@ -14,7 +14,7 @@ UPortalSubSystem::UPortalSubSystem()
 {
 	ConstructorHelpers::FObjectFinder<UClass> Camera(TEXT("/Game/Cam.Cam_C"));
 	ConstructorHelpers::FObjectFinder<UMaterial> Material(TEXT("/Game/Protal.Protal"));
-
+		
 	if (Camera.Succeeded())
 	{
 		PortalCameraPrefab = Camera.Object;
@@ -42,6 +42,43 @@ void UPortalSubSystem::OnWorldInitializedActors(const FActorsInitializedParams& 
 // FTickableGameObject Begin
 void UPortalSubSystem::Tick(float DeltaTime)
 {
+	FVector2d NewResolution = GetGameResolution();
+	FVector2d NewViewportSize = GetGameViewportSize();
+	//float NewFOV = 90;
+
+	/*UActorComponent* comp = nullptr;
+	
+	if (Player != nullptr) comp = Player->GetComponentByClass(UCameraComponent::StaticClass());
+	
+	if (comp != nullptr)
+	{
+		UCameraComponent* cam = Cast<UCameraComponent>(comp);
+		
+		if (cam != nullptr)
+		{
+			NewFOV = cam->FieldOfView;
+		}
+	}*/
+	
+	if (Resolution != NewResolution || ViewportSize != NewViewportSize)
+	{
+		Resolution = NewResolution;
+		ViewportSize = NewViewportSize;
+		//FOV = NewFOV;
+
+		for (APortalCamera* camera : ActivePortalCameras)
+		{
+			if (camera == nullptr || camera->Capture || camera->Capture->TextureTarget) continue;
+
+			UTextureRenderTarget2D* RenderTarget = camera->Capture->TextureTarget;
+			
+			RenderTarget->InitAutoFormat(Resolution.X, Resolution.Y);
+			RenderTarget->UpdateResource();
+
+			camera->Capture->FOVAngle = FOV;
+		}
+	}
+	
 	for (APortal* portal : Portals)
 	{
 		if (portal == nullptr)
@@ -109,7 +146,7 @@ void UPortalSubSystem::Tick(float DeltaTime)
 			RenderPortal(portal);
 		}
 	}
-
+	
 	for (APortalCamera* camera : ActivePortalCameras)
 	{
 		USceneCaptureComponent2D* capture = camera->Capture;
@@ -143,7 +180,7 @@ bool UPortalSubSystem::IsTickableInEditor() const
 
 APortalCamera* UPortalSubSystem::CameraGet()
 {
-	if (PortalCameras.Num() == 0 && ActivePortalCameras.Num() == 0)
+	if (PortalCameras.Num() == 0)
 	{	
 		UE_LOG(LogTemp, Warning, TEXT("New Camera Created!"));
 		if (PortalCameraPrefab == nullptr) return nullptr;
@@ -153,7 +190,7 @@ APortalCamera* UPortalSubSystem::CameraGet()
 
 		//Create Render Target for the new camera
 		UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>();
-		RenderTarget->InitAutoFormat(512, 512);
+		RenderTarget->InitAutoFormat(Resolution.X, Resolution.Y);
 		RenderTarget->UpdateResource();
 		
 		USceneCaptureComponent2D* cam = camera->Capture;
@@ -161,23 +198,19 @@ APortalCamera* UPortalSubSystem::CameraGet()
 		if (cam == nullptr) return nullptr;
 		
 		cam->TextureTarget = RenderTarget;
-		cam->bEnableClipPlane = true;
-		cam->bCaptureEveryFrame = false;
 		
 		ActivePortalCameras.Add(camera);
 		
+		camera->Capture->CaptureSource = ESceneCaptureSource::SCS_FinalColorHDR;
+		
 		return camera;
 	}
-	else if (PortalCameras.Num() > 0)
+	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Camera Reused!"));
 		APortalCamera* camera = PortalCameras.Pop();
 		ActivePortalCameras.Add(camera);
 		return camera;
-	}
-	else
-	{
-		return nullptr;
 	}
 }
 
@@ -195,18 +228,19 @@ void UPortalSubSystem::CameraRelease(APortalCamera* camera)
 void UPortalSubSystem::RenderPortal(APortal* portal)
 {
 	if (portal == nullptr || portal->LinkCamera == nullptr || portal->LinkedPortal == nullptr) return;
+
+	if (Player == nullptr)
+	{
+		Player = GetLocalPlayer()->GetPlayerController(GetWorld())->GetPawn();
+
+		if (Player == nullptr) return;
+	}
 	
-	APawn* Player = GetLocalPlayer()->GetPlayerController(GetWorld())->GetPawn();
-	
-	portal->LinkCamera->SetActorLocation(portal->RelativeLinkLocation(Player->GetActorLocation()));
+	portal->LinkCamera->SetActorLocation(portal->RelativeLinkLocation(Player->GetActorLocation() + Player->GetActorUpVector() * 60 + Player->GetActorForwardVector() * -10));
 	
 	portal->LinkCamera->SetActorRotation(portal->RelativeLinkRotation(Player->GetControlRotation().Quaternion()));
 
-	USceneCaptureComponent2D* capture = portal->LinkCamera->Capture;
-
-	if (capture == nullptr) return;
-
-	portal->LinkedPortal->SetupClipPlane(capture);
+	portal->LinkedPortal->SetupClipPlane();
 }
 
 void UPortalSubSystem::CreateNewPortal(APortal* portal)
@@ -242,4 +276,26 @@ void UPortalSubSystem::Initialize(FSubsystemCollectionBase& Collection)
 void UPortalSubSystem::Deinitialize()
 {
 	Super::Deinitialize();
+}
+
+FVector2D UPortalSubSystem::GetGameViewportSize()
+{
+	FVector2D Result = FVector2D( 1, 1 );
+
+	if ( GEngine && GEngine->GameViewport )
+	{
+		GEngine->GameViewport->GetViewportSize( /*out*/Result );
+	}
+
+	return Result;
+}
+
+FVector2D UPortalSubSystem::GetGameResolution()
+{
+	FVector2D Result = FVector2D( 1, 1 );
+
+	Result.X = GSystemResolution.ResX;
+	Result.Y = GSystemResolution.ResY;
+
+	return Result;
 }
