@@ -8,7 +8,6 @@
 #include "Camera/CameraComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
-#include "Systems/MovieSceneQuaternionBlenderSystem.h"
 
 UPortalSubSystem::UPortalSubSystem()
 {
@@ -44,21 +43,8 @@ void UPortalSubSystem::Tick(float DeltaTime)
 {
 	FVector2d NewResolution = GetGameResolution();
 	FVector2d NewViewportSize = GetGameViewportSize();
-	//float NewFOV = 90;
 
-	/*UActorComponent* comp = nullptr;
-	
-	if (Player != nullptr) comp = Player->GetComponentByClass(UCameraComponent::StaticClass());
-	
-	if (comp != nullptr)
-	{
-		UCameraComponent* cam = Cast<UCameraComponent>(comp);
-		
-		if (cam != nullptr)
-		{
-			NewFOV = cam->FieldOfView;
-		}
-	}*/
+	FMatrix Matrix = GetPlayerProjectionMatrix();
 	
 	if (Resolution != NewResolution || ViewportSize != NewViewportSize)
 	{
@@ -74,6 +60,7 @@ void UPortalSubSystem::Tick(float DeltaTime)
 			
 			RenderTarget->InitAutoFormat(Resolution.X, Resolution.Y);
 			RenderTarget->UpdateResource();
+			camera->Capture->CustomProjectionMatrix = Matrix;
 
 			camera->Capture->FOVAngle = FOV;
 		}
@@ -98,8 +85,34 @@ void UPortalSubSystem::Tick(float DeltaTime)
 
 		if (!portal->WasRecentlyRendered())
 		{
-			if (portal->LinkCamera != nullptr) CameraRelease(portal->LinkCamera);
-			portal->LinkCamera = nullptr;
+			if (portal->LinkCamera != nullptr)
+			{
+				CameraRelease(portal->LinkCamera);
+				
+				portal->LinkCamera = nullptr;
+
+				UMaterialInterface* BaseMaterial = portal->Mesh->GetMaterial(0);
+
+				UMaterialInstanceDynamic* DynamicMat = Cast<UMaterialInstanceDynamic>(BaseMaterial);
+
+				if (DynamicMat == nullptr)
+				{
+					DynamicMat = UMaterialInstanceDynamic::Create(PortalMaterialPrefab, portal);
+					if (!DynamicMat)
+					{
+						UE_LOG(LogTemp, Error, TEXT("Failed to create Dynamic Material Instance!"));
+						continue;
+					}
+
+					portal->Mesh->SetMaterial(0, DynamicMat);
+				}
+
+				UTexture* BlankTexture;
+				PortalMaterialPrefab->GetTextureParameterValue(FName("RenderTarget"), BlankTexture);
+				
+				DynamicMat->SetTextureParameterValue(FName("RenderTarget"), BlankTexture);
+				UE_LOG(LogTemp, Warning, TEXT("Updated RenderTexture Parameter!"));
+			}
 		}
 		else
 		{
@@ -141,6 +154,7 @@ void UPortalSubSystem::Tick(float DeltaTime)
 					UE_LOG(LogTemp, Error, TEXT("Capture or TextureTarget is NULL!"));
 					continue;
 				}
+				camera->Capture->HiddenActors.Add(portal->LinkedPortal);
 			}
 			
 			RenderPortal(portal);
@@ -209,6 +223,7 @@ APortalCamera* UPortalSubSystem::CameraGet()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Camera Reused!"));
 		APortalCamera* camera = PortalCameras.Pop();
+		camera->Capture->HiddenActors.Empty();
 		ActivePortalCameras.Add(camera);
 		return camera;
 	}
@@ -231,12 +246,16 @@ void UPortalSubSystem::RenderPortal(APortal* portal)
 
 	if (Player == nullptr)
 	{
-		Player = GetLocalPlayer()->GetPlayerController(GetWorld())->GetPawn();
+		APawn* pawn = GetLocalPlayer()->GetPlayerController(GetWorld())->GetPawn();
 
+		if (pawn == nullptr) return;
+
+		Player = Cast<AProtalCharacter>(pawn);
+		
 		if (Player == nullptr) return;
 	}
 	
-	portal->LinkCamera->SetActorLocation(portal->RelativeLinkLocation(Player->GetActorLocation() + Player->GetActorUpVector() * 60 + Player->GetActorForwardVector() * -10));
+	portal->LinkCamera->SetActorLocation(portal->RelativeLinkLocation(Player->GetFirstPersonCameraComponent()->GetComponentLocation()));
 	
 	portal->LinkCamera->SetActorRotation(portal->RelativeLinkRotation(Player->GetControlRotation().Quaternion()));
 
@@ -298,4 +317,38 @@ FVector2D UPortalSubSystem::GetGameResolution()
 	Result.Y = GSystemResolution.ResY;
 
 	return Result;
+}
+
+APlayerCameraManager* UPortalSubSystem::GetPlayerCameraManager() const
+{
+	if (const ULocalPlayer* LocalPlayer = GetLocalPlayer())
+	{
+		if (APlayerController* PlayerController = LocalPlayer->GetPlayerController(GetWorld()))
+		{
+			return PlayerController->PlayerCameraManager;
+		}
+	}
+	return nullptr;
+}
+
+FMatrix UPortalSubSystem::GetPlayerProjectionMatrix() const
+{
+	APlayerCameraManager* CameraManager = GetPlayerCameraManager();
+	if (!CameraManager)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No PlayerCameraManager found!"));
+		return FMatrix::Identity;
+	}
+
+	if (const ULocalPlayer* LocalPlayer = GetLocalPlayer())
+	{
+		FSceneViewProjectionData ProjectionData;
+		if (LocalPlayer->GetProjectionData(LocalPlayer->ViewportClient->Viewport,ProjectionData))
+		{
+			return ProjectionData.ProjectionMatrix;
+		}
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Failed to retrieve Projection Matrix!"));
+	return FMatrix::Identity;
 }

@@ -53,12 +53,12 @@ void APortal::TeleportAttempt(UPrimitiveComponent* OverlappedComponent, AActor* 
 		ACharacter* Character = Cast<ACharacter>(OtherActor);
 		
 		UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement();
-		if (MovementComponent != nullptr)
+		UPrimitiveComponent* Root = Cast<UPrimitiveComponent>(Character->GetRootComponent());
+		if (MovementComponent != nullptr && Root != nullptr)
 		{
 			FVector Velocity = MovementComponent->Velocity;
-			
-			MovementComponent->AddImpulse(-Velocity, true);
-			MovementComponent->AddImpulse(RelativeLinkRotation(Velocity.ToOrientationQuat()).Vector()*1000, true);
+
+			Root->SetPhysicsLinearVelocity(Velocity);
 		}
 
 		FQuat Rotation = RelativeLinkRotation(Character->GetControlRotation().Quaternion());
@@ -78,7 +78,9 @@ void APortal::TeleportAttempt(UPrimitiveComponent* OverlappedComponent, AActor* 
 		OtherActor->SetActorRotation(Rotator);
 	}
 	
-	OtherActor->SetActorLocation(RelativeLinkLocation(OtherActor->GetActorLocation()));
+	OtherActor->SetActorLocation(RelativeLinkLocation(OtherActor->GetActorLocation()), false, nullptr, ETeleportType::TeleportPhysics);
+
+	OtherActor->SetActorScale3D(OtherActor->GetActorScale() + (LinkedPortal->GetActorScale() - GetActorScale()));
 }
 
 // Called every frame
@@ -124,5 +126,5 @@ void APortal::SetupClipPlane() const
 	}
 	
 	LinkCamera->Capture->ClipPlaneNormal = LinkedPortal->GetActorForwardVector();
-	LinkCamera->Capture->ClipPlaneBase = LinkedPortal->GetActorLocation();
+	LinkCamera->Capture->ClipPlaneBase = LinkedPortal->GetActorLocation() - LinkedPortal->GetActorForwardVector() * 200;
 }

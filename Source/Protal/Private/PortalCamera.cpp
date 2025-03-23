@@ -17,5 +17,6 @@ APortalCamera::APortalCamera()
 	Capture->bEnableClipPlane = true;
 	Capture->bCaptureEveryFrame = false;
 	Capture->bCaptureOnMovement = false;
-	Capture->CaptureSource = ESceneCaptureSource::SCS_FinalColorHDR;
+	Capture->CaptureSource = ESceneCaptureSource::SCS_MAX;
+	Capture->PostProcessSettings.AutoExposureMinBrightness = Capture->PostProcessSettings.AutoExposureMaxBrightness;
 }

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Portal.h"
 #include "PortalCamera.h"
+#include "Protal/ProtalCharacter.h"
 #include "Subsystems/LocalPlayerSubsystem.h"
 #include "PortalSubSystem.generated.h"
 
@@ -23,6 +24,8 @@ public:
 	virtual void Deinitialize() override;
 	FVector2D GetGameViewportSize();
 	FVector2D GetGameResolution();
+	APlayerCameraManager* GetPlayerCameraManager() const;
+	FMatrix GetPlayerProjectionMatrix() const;
 
 	UPROPERTY()
 	TSubclassOf<APortalCamera> PortalCameraPrefab;
@@ -43,7 +46,7 @@ public:
 	float FOV = 90;
 
 	UPROPERTY()
-	APawn* Player;
+	AProtalCharacter* Player;
 	
 	void Init();
 
