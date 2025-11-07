@@ -41,30 +41,6 @@ void UPortalSubSystem::OnWorldInitializedActors(const FActorsInitializedParams& 
 // FTickableGameObject Begin
 void UPortalSubSystem::Tick(float DeltaTime)
 {
-	FVector2d NewResolution = GetGameResolution();
-	FVector2d NewViewportSize = GetGameViewportSize();
-
-	FMatrix Matrix = GetPlayerProjectionMatrix();
-	
-	if (Resolution != NewResolution || ViewportSize != NewViewportSize)
-	{
-		Resolution = NewResolution;
-		ViewportSize = NewViewportSize;
-
-		for (APortalCamera* camera : ActivePortalCameras)
-		{
-			if (camera == nullptr || camera->Capture || camera->Capture->TextureTarget) continue;
-
-			UTextureRenderTarget2D* RenderTarget = camera->Capture->TextureTarget;
-			
-			RenderTarget->InitAutoFormat(Resolution.X, Resolution.Y);
-			RenderTarget->UpdateResource();
-			camera->Capture->CustomProjectionMatrix = Matrix;
-
-			camera->Capture->FOVAngle = FOV;
-		}
-	}
-	
 	for (APortal* portal : Portals)
 	{
 		if (portal == nullptr)
@@ -125,6 +101,11 @@ void UPortalSubSystem::Tick(float DeltaTime)
 				USceneCaptureComponent2D* capture = camera->Capture;
 
 				if (capture == nullptr) continue;
+
+				UE::Math::TVector<double> size = portal->Mesh->Bounds.GetBox().GetSize();
+
+				capture->TextureTarget->InitAutoFormat(size.X, size.Z);
+				capture->TextureTarget->UpdateResource();
 				
 				UMaterialInterface* BaseMaterial = portal->Mesh->GetMaterial(0);
 
@@ -200,8 +181,6 @@ APortalCamera* UPortalSubSystem::CameraGet()
 
 		//Create Render Target for the new camera
 		UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>();
-		RenderTarget->InitAutoFormat(Resolution.X, Resolution.Y);
-		RenderTarget->UpdateResource();
 		
 		USceneCaptureComponent2D* capture = camera->Capture;
 
@@ -220,9 +199,6 @@ APortalCamera* UPortalSubSystem::CameraGet()
 		USceneCaptureComponent2D* capture = camera->Capture;
 
 		if (!capture) return nullptr;
-
-		capture->TextureTarget->InitAutoFormat(Resolution.X, Resolution.Y);
-		capture->TextureTarget->UpdateResource();
 		
 		capture->HiddenActors.Empty();
 		ActivePortalCameras.Add(camera);
