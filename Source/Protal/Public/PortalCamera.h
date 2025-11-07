@@ -15,5 +15,6 @@ public:
 	// Sets default values for this actor's properties
 	APortalCamera();
 
-	TObjectPtr<USceneCaptureComponent2D> Capture;
+	UPROPERTY(EditAnywhere)
+	USceneCaptureComponent2D* Capture;
 };
