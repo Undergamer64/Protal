@@ -50,7 +50,6 @@ void UPortalSubSystem::Tick(float DeltaTime)
 	{
 		Resolution = NewResolution;
 		ViewportSize = NewViewportSize;
-		//FOV = NewFOV;
 
 		for (APortalCamera* camera : ActivePortalCameras)
 		{
@@ -111,7 +110,6 @@ void UPortalSubSystem::Tick(float DeltaTime)
 				PortalMaterialPrefab->GetTextureParameterValue(FName("RenderTarget"), BlankTexture);
 				
 				DynamicMat->SetTextureParameterValue(FName("RenderTarget"), BlankTexture);
-				UE_LOG(LogTemp, Warning, TEXT("Updated RenderTexture Parameter!"));
 			}
 		}
 		else
@@ -147,7 +145,6 @@ void UPortalSubSystem::Tick(float DeltaTime)
 				if (capture && capture->TextureTarget)
 				{
 					DynamicMat->SetTextureParameterValue(FName("RenderTarget"), capture->TextureTarget);
-					UE_LOG(LogTemp, Warning, TEXT("Updated RenderTexture Parameter!"));
 				}
 				else
 				{
@@ -196,7 +193,6 @@ APortalCamera* UPortalSubSystem::CameraGet()
 {
 	if (PortalCameras.Num() == 0)
 	{	
-		UE_LOG(LogTemp, Warning, TEXT("New Camera Created!"));
 		if (PortalCameraPrefab == nullptr) return nullptr;
 		
 		//Create New Camera
@@ -207,23 +203,28 @@ APortalCamera* UPortalSubSystem::CameraGet()
 		RenderTarget->InitAutoFormat(Resolution.X, Resolution.Y);
 		RenderTarget->UpdateResource();
 		
-		USceneCaptureComponent2D* cam = camera->Capture;
+		USceneCaptureComponent2D* capture = camera->Capture;
 
-		if (cam == nullptr) return nullptr;
+		if (capture == nullptr) return nullptr;
 		
-		cam->TextureTarget = RenderTarget;
+		capture->TextureTarget = RenderTarget;
 		
 		ActivePortalCameras.Add(camera);
-		
-		camera->Capture->CaptureSource = ESceneCaptureSource::SCS_FinalColorHDR;
 		
 		return camera;
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Camera Reused!"));
 		APortalCamera* camera = PortalCameras.Pop();
-		camera->Capture->HiddenActors.Empty();
+
+		USceneCaptureComponent2D* capture = camera->Capture;
+
+		if (!capture) return nullptr;
+
+		capture->TextureTarget->InitAutoFormat(Resolution.X, Resolution.Y);
+		capture->TextureTarget->UpdateResource();
+		
+		capture->HiddenActors.Empty();
 		ActivePortalCameras.Add(camera);
 		return camera;
 	}
@@ -336,7 +337,7 @@ FMatrix UPortalSubSystem::GetPlayerProjectionMatrix() const
 	APlayerCameraManager* CameraManager = GetPlayerCameraManager();
 	if (!CameraManager)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("No PlayerCameraManager found!"));
+		//UE_LOG(LogTemp, Warning, TEXT("No PlayerCameraManager found!"));
 		return FMatrix::Identity;
 	}
 

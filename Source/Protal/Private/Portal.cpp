@@ -124,7 +124,12 @@ void APortal::SetupClipPlane() const
 		UE_LOG(LogTemp, Warning, TEXT("No SceneCaptureComponent found!"));
 		return;
 	}
+
+	if (LinkCamera->Capture->ClipPlaneBase != LinkedPortal->GetActorLocation() - LinkedPortal->GetActorForwardVector() * Mesh->Bounds.GetBox().GetSize().Y)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Clip Plane Updated !"));
+	}
 	
 	LinkCamera->Capture->ClipPlaneNormal = LinkedPortal->GetActorForwardVector();
-	LinkCamera->Capture->ClipPlaneBase = LinkedPortal->GetActorLocation() - LinkedPortal->GetActorForwardVector() * 200;
+	LinkCamera->Capture->ClipPlaneBase = LinkedPortal->GetActorLocation() - LinkedPortal->GetActorForwardVector() * Mesh->Bounds.GetBox().GetSize().Y;
 }
